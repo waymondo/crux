@@ -191,15 +191,16 @@ point reaches the beginning or end of the buffer, stop there."
 (defun crux-rename-file-and-buffer ()
   "Rename current buffer and if the buffer is visiting a file, rename it too."
   (interactive)
-  (let ((filename (buffer-file-name)))
-    (if (not (and filename (file-exists-p filename)))
-        (rename-buffer (read-from-minibuffer "New name: " (buffer-name)))
-      (let ((new-name (read-file-name "New name: " filename)))
-        (cond
-         ((vc-backend filename) (vc-rename-file filename new-name))
-         (t
-          (rename-file filename new-name t)
-          (set-visited-file-name new-name t t)))))))
+  (let* ((filename (buffer-file-name))
+         (old-name (if filename
+                       (file-name-nondirectory filename)
+                     (buffer-name)))
+         (new-name (read-file-name "New name: " nil nil nil old-name)))
+    (cond
+     ((not (and filename (file-exists-p filename))) (rename-buffer new-name))
+     (:else
+      (rename-file filename new-name :force-overwrite)
+      (set-visited-file-name new-name :no-query :along-with-file)))))
 
 (defalias 'crux-rename-buffer-and-file #'crux-rename-file-and-buffer)
 
@@ -208,12 +209,8 @@ point reaches the beginning or end of the buffer, stop there."
   (interactive)
   (let ((filename (buffer-file-name)))
     (when filename
-      (if (vc-backend filename)
-          (vc-delete-file filename)
-        (when (y-or-n-p (format "Are you sure you want to delete %s? " filename))
-          (delete-file filename delete-by-moving-to-trash)
-          (message "Deleted file %s" filename)
-          (kill-buffer))))))
+      (system-move-file-to-trash filename))
+    (kill-buffer)))
 
 (defalias 'crux-delete-buffer-and-file #'crux-delete-file-and-buffer)
 
